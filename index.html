@@ -106,7 +106,7 @@
         // ========================================================
         // 👇 ضع رابط السكربت (Web App URL) الخاص بك بين علامتي التنصيص هنا 👇
         // ========================================================
-        const GOOGLE_SCRIPT_URL = '16EO73jhJkxjU79ZF7KqmZrufZYKVaAMk';
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxCiS-WiWcYUqGzc5HoC7iHZTc3J6wTj8EOCyH3mi7mst6yot4tpjL554ys4U6ydW46Ww/exec';
 
         // المصفوفة الكاملة لجميع الأسئلة الـ 25
         const questions = [
@@ -400,10 +400,19 @@
                 fetch(GOOGLE_SCRIPT_URL, {
                     method: 'POST',
                     body: formData,
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+                    mode: 'no-cors' // 👈 هذا السطر يمنع المتصفح من حظر الإرسال
                 })
-                .then(res => res.json())
-                .then(data => {
+                .then(() => {
+                    // نجاح الإرسال
+                    document.getElementById('loading-screen').classList.add('hidden');
+                    document.getElementById('report-screen').classList.remove('hidden');
+                })
+                .catch(err => {
+                    console.error("Error:", err);
+                    alert("⚠️ تعذر رفع الملف إلى السيرفر، يرجى النقر على (طباعة نسخة) لحفظ نتيجتك يدوياً كـ PDF.");
+                    document.getElementById('loading-screen').classList.add('hidden');
+                    document.getElementById('report-screen').classList.remove('hidden');
+                });
                     document.getElementById('loading-screen').classList.add('hidden');
                     document.getElementById('report-screen').classList.remove('hidden');
                 })
