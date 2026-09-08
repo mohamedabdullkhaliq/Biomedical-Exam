@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام التقييم المهني الشامل للأجهزة الطبية</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
+        body { font-family: 'Tajawal', sans-serif; }
+        .timer-bar { transition: width 1s linear; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+
+    <!-- شاشة إدخال البيانات -->
+    <div id="start-screen" class="bg-white p-8 rounded-xl shadow-lg max-w-2xl w-full text-center">
+        <h1 class="text-3xl font-bold text-blue-800 mb-2">اختبار الكفاءة المهنية للأجهزة الطبية</h1>
+        <p class="text-gray-600 mb-6">الرجاء إدخال بياناتك بدقة للبدء. سيتم حفظ نتيجتك رسمياً في النظام بصيغة PDF.</p>
+        
+        <div class="space-y-4 mb-6 text-right">
+            <div>
+                <label class="block text-gray-700 font-bold mb-2">الاسم الثلاثي:</label>
+                <input type="text" id="user-name" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500" required>
+            </div>
+            <div>
+                <label class="block text-gray-700 font-bold mb-2">الرقم الوظيفي / الهوية:</label>
+                <input type="text" id="user-id" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500" required>
+            </div>
+            <div>
+                <label class="block text-gray-700 font-bold mb-2">المسمى الوظيفي (مثال: مهندس، فني):</label>
+                <input type="text" id="user-title" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500" required>
+            </div>
+        </div>
+        
+        <button onclick="startQuiz()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg w-full transition">ابدأ الاختبار الآن</button>
+    </div>
+
+    <!-- شاشة الاختبار -->
+    <div id="quiz-screen" class="bg-white p-6 md:p-8 rounded-xl shadow-lg max-w-3xl w-full hidden">
+        <div class="flex justify-between items-center mb-4">
+            <span id="question-counter" class="text-blue-600 font-bold text-lg">سؤال 1 / 25</span>
+            <span id="timer-text" class="text-red-500 font-bold text-lg">60 ثانية</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2.5 mb-6">
+            <div id="timer-bar" class="bg-blue-600 h-2.5 rounded-full timer-bar" style="width: 100%"></div>
+        </div>
+        <h2 id="question-text" class="text-xl md:text-2xl font-semibold text-gray-800 mb-6 leading-relaxed"></h2>
+        <div id="options-container" class="space-y-3"></div>
+    </div>
+
+    <!-- نافذة التغذية الراجعة (Modal) -->
+    <div id="feedback-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl p-6 md:p-8 max-w-lg w-full text-center">
+            <div id="feedback-icon" class="text-6xl mb-4"></div>
+            <h3 id="feedback-title" class="text-2xl font-bold mb-2"></h3>
+            <p id="feedback-explanation" class="text-gray-600 mb-6 leading-relaxed text-lg"></p>
+            <button onclick="nextQuestion()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg w-full text-lg">السؤال التالي</button>
+        </div>
+    </div>
+
+    <!-- شاشة جاري الحفظ -->
+    <div id="loading-screen" class="fixed inset-0 bg-white flex items-center justify-center flex-col hidden z-50 p-4 text-center">
+        <div class="loader mb-6"></div>
+        <h2 class="text-2xl font-bold text-blue-800 mb-2">جاري إنشاء التقرير وحفظ نتيجتك رسمياً...</h2>
+        <p class="text-gray-500 text-lg">الرجاء عدم إغلاق هذه الصفحة حتى تظهر النتيجة</p>
+    </div>
+
+    <!-- شاشة النتيجة النهائية (التقرير) -->
+    <div id="report-screen" class="bg-white p-4 md:p-8 max-w-4xl w-full mx-auto hidden">
+        <div id="report-content" class="p-6 md:p-8 border-2 border-gray-200 rounded-lg bg-white">
+            <div class="text-center mb-8 border-b pb-4">
+                <img src="https://cdn-icons-png.flaticon.com/512/1904/1904118.png" alt="Logo" class="w-20 h-20 mx-auto mb-4">
+                <h1 class="text-3xl font-bold text-blue-800">تقرير الكفاءة المهنية للأجهزة الطبية</h1>
+                <p class="text-gray-500 mt-2" id="report-date"></p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <p class="font-bold text-lg">الاسم: <span id="r-name" class="font-normal text-gray-700"></span></p>
+                <p class="font-bold text-lg">الرقم الوظيفي: <span id="r-id" class="font-normal text-gray-700"></span></p>
+                <p class="font-bold text-lg">المسمى: <span id="r-title" class="font-normal text-gray-700"></span></p>
+                <p class="font-bold text-lg text-blue-600">النتيجة: <span id="r-score" class="font-bold text-2xl"></span></p>
+            </div>
+            
+            <div class="mb-8 p-6 rounded-lg text-center bg-blue-50 border border-blue-200">
+                <h3 class="font-bold text-xl mb-2 text-blue-800">مستوى التقييم النهائي</h3>
+                <p id="r-eval" class="text-xl font-bold"></p>
+            </div>
+
+            <h3 class="text-xl font-bold mb-4 border-b pb-2 text-gray-800">السجل التفصيلي للإجابات:</h3>
+            <div id="report-details" class="space-y-4 text-sm md:text-base">
+                <!-- سيتم تعبئتها برمجياً -->
+            </div>
+        </div>
+        
+        <div class="mt-8 text-center" id="success-msg">
+            <p class="text-green-600 font-bold text-2xl mb-6">✅ تم حفظ نتيجتك بنجاح في ملفك الوظيفي!</p>
+            <button onclick="window.print()" class="bg-gray-800 hover:bg-gray-900 text-white py-3 px-8 rounded-lg text-lg font-bold transition">🖨️ طباعة نسخة لك</button>
+        </div>
+    </div>
+
+    <script>
+        // ========================================================
+        // 👇 ضع رابط السكربت (Web App URL) الخاص بك بين علامتي التنصيص هنا 👇
+        // ========================================================
+        const GOOGLE_SCRIPT_URL = '16EO73jhJkxjU79ZF7KqmZrufZYKVaAMk';
+
+        // المصفوفة الكاملة لجميع الأسئلة الـ 25
+        const questions = [
+            {
+                q: "أثناء فحصك للوحة تغذية طاقة تشك في وجود قصر (Short) في أحد الصمامات الثنائية (Diode). باستخدام جهاز الملتيميتر على وضع فحص الدايود، ما هي القراءة التي تؤكد وجود القصر؟",
+                options: ["قراءة 0.6V في الاتجاه الأمامي، و (OL) في الاتجاه العكسي.", "قراءة (OL - Open Loop) في كلا الاتجاهين.", "قراءة قريبة جداً من 0.0V مع رنين مستمر في كلا الاتجاهين.", "قراءة 0.7V في الاتجاهين."],
+                correct: 2,
+                exp: "الدايود السليم يعطي قراءة (~0.6V) باتجاه واحد. الدايود الذي به قصر يمرر التيار بالاتجاهين ويعطي قراءة شبه صفرية (0.0V) مع رنين."
+            },
+            {
+                q: "للتحقق من إشارة الـ PWM المرسلة إلى بوابة الترانزستور (MOSFET Gate) في دائرة تحكم لمحرك. ما هو الجهاز الأنسب والأدق لهذا الفحص؟",
+                options: ["Digital Multimeter على وضع قياس التيار المستمر.", "Oscilloscope مع ضبط إعدادات (Volts/Div) و (Time/Div).", "Function Generator لإنشاء إشارة مرجعية.", "Electrical Safety Analyzer لقياس تيار التسريب."],
+                correct: 1,
+                exp: "إشارة الـ PWM هي موجة مربعة، وجهاز الـ Oscilloscope هو الأداة الوحيدة لعرض شكل الموجة وترددها ودورة العمل بدقة."
+            },
+            {
+                q: "معظم الأجهزة الطبية المحمولة الحديثة تستخدم بطاريات ليثيوم أيون (Li-ion). أي من التالي يُعد آلية أمان أساسية مدمجة داخل هذه البطاريات؟",
+                options: ["تحتاج إلى تفريغ كامل قبل إعادة الشحن لمنع تأثير الذاكرة.", "وجود دائرة إدارة البطارية (BMS) لمنع الشحن الزائد والتفريغ العميق.", "يجب تزويدها بالماء المقطر كل شهر.", "غلاف رصاصي سميك لمنع تسرب الإشعاع."],
+                correct: 1,
+                exp: "بطاريات الليثيوم حساسة جداً. لوحة الـ BMS ضرورية لحمايتها من الشحن المفرط أو التفريغ العميق والحرارة الزائدة لمنع احتراقها."
+            },
+            {
+                q: "أثناء إجراء اختبار السلامة الكهربائية لجهاز ECG، قمت بقياس تيار تسريب المريض المساعد للأقطاب (CF). ما هو الحد الأقصى المسموح به في الحالة الطبيعية؟",
+                options: ["10 µA (ميكرو أمبير)", "100 µA (ميكرو أمبير)", "500 µA (ميكرو أمبير)", "10 mA (مللي أمبير)"],
+                correct: 0,
+                exp: "الأجزاء المطبقة من نوع CF هي الأكثر حساسية وتتصل بالقلب مباشرة، والحد الأقصى المسموح لتيار التسريب هو 10 ميكرو أمبير."
+            },
+            {
+                q: "ما هو الغرض الأساسي من استخدام نظام الطاقة المعزول (IPS) وجهاز مراقبة العزل (LIM) داخل غرف العمليات؟",
+                options: ["توفير طاقة بديلة (بطاريات) لمنع انقطاع الكهرباء.", "تحويل التيار المتردد إلى تيار مستمر نقي.", "منع حدوث صدمة كهربائية في حالة الخطأ الأول عن طريق إبقاء النظام معزولاً.", "فلترة الضوضاء عالية التردد الناتجة عن أجهزة الكي."],
+                correct: 2,
+                exp: "نظام IPS يعزل الدائرة عن الأرضي. إذا حدث خطأ أول من أي جهاز، لا يصعق المريض، بل يطلق LIM إنذاراً لينبه الطاقم بضعف العزل."
+            },
+            {
+                q: "عند إجراء المعايرة، واستخدام جهاز محاكي (Simulator)، ما هو الشرط الأهم الذي يجب توفره في جهاز المعايرة؟",
+                options: ["أن يكون من نفس الشركة المصنعة للجهاز الطبي.", "أن تكون شهادة المعايرة الخاصة بجهاز الاختبار سارية (Traceable to Standards).", "أن يكون الجهاز حديث الإصدار.", "أن يتم استخدامه فقط من قبل مهندسي الشركة المصنعة."],
+                correct: 1,
+                exp: "يجب أن تكون أجهزة الفحص (Analyzers) معايرة ولها شهادة سارية يمكن تتبعها لمعايير القياس الدولية لضمان دقة قياسها للأجهزة الطبية."
+            },
+            {
+                q: "جهاز مراقبة يعطي قراءة غير مستقرة لنسبة الأكسجين (SpO2). تم تغيير الحساس بحساس جديد، لكن المشكلة استمرت. ما هي الخطوة المنطقية التالية؟",
+                options: ["ترقية البرنامج التشغيلي (Software Update) فوراً.", "تغيير اللوحة الأم (Main Board).", "التحقق من تروية المريض، وضعية الحساس، ووجود تداخل ضوئي قوي.", "إجراء معايرة للضغط غير التداخلي (NIBP Calibration)."],
+                correct: 2,
+                exp: "قبل تغيير القطع الداخلية، يجب دائماً فحص العوامل الخارجية (التروية، الضوء المحيط) لأن تقنية SpO2 تعتمد على امتصاص الضوء وتدفق الدم."
+            },
+            {
+                q: "يعرض جهاز تخطيط القلب (ECG) تشويشاً مستمراً بتردد 50/60 هرتز. أي من الإجراءات التالية هو *الأقل* احتمالية لحل المشكلة؟",
+                options: ["التأكد من جودة التوصيل الأرضي لسرير المريض والجهاز.", "تفعيل فلتر القطع (Notch Filter) في الإعدادات.", "فحص دائرة (Right Leg Drive) وقطب التوصيل.", "زيادة سرعة الطباعة من 25 mm/s إلى 50 mm/s."],
+                correct: 3,
+                exp: "زيادة سرعة الطباعة يغير فقط عرض الموجة على الورق ولكنه لا يزيل التداخل الكهربائي (AC Noise). الخيارات الأخرى تعالج جذر المشكلة."
+            },
+            {
+                q: "جهاز تنفس صناعي يصدر إنذاراً مستمراً بانخفاض الحجم المدي وانخفاض في ضغط الشهيق الأقصى (PIP). ما هو الإجراء التشخيصي الأول؟",
+                options: ["إجراء معايرة لحساس الأكسجين.", "إجراء اختبار تسريب لدائرة تنفس المريض (Leak Test).", "تغيير صمام الزفير مباشرة.", "زيادة إعدادات الضغط (PEEP)."],
+                correct: 1,
+                exp: "انخفاض ضغط الشهيق (PIP) مصحوباً بانخفاض الحجم المدي هو دلالة كلاسيكية على وجود تسريب (Leak) في أنابيب دائرة تنفس المريض."
+            },
+            {
+                q: "مضخة محاليل (Infusion Pump) تصدر إنذارات بوجود هواء بالرغم من عدم وجود هواء مرئي. أي حساس هو المرجح تعطله؟",
+                options: ["حساس الضغط (Pressure Transducer).", "الحساس فوق الصوتي (Ultrasonic Sensor).", "الحساس الضوئي للقطرات.", "حساس تأثير هول."],
+                correct: 1,
+                exp: "تستخدم المضخات الحساسات فوق الصوتية لاكتشاف التغيير في الكثافة بين السائل والهواء. إذا اتسخ الحساس، قد يعطي قراءات خاطئة."
+            },
+            {
+                q: "عند التحقق من أداء NIBP، اجتاز الجهاز اختبار التسريب الثابت، لكن القراءات الديناميكية دائماً أقل من المحاكي. ما السبب الأكثر احتمالاً؟",
+                options: ["وجود تسريب في الأنابيب الهوائية الداخلية للمضخة.", "اختيار حجم (كف) خاطئ (Incorrect Cuff Size Setting).", "تعطل مضخة الهواء.", "تعطل الصمام التناسبي."],
+                correct: 1,
+                exp: "نجاح اختبار التسريب يعني أن المنظومة الهوائية محكمة. الخلل في القراءات الديناميكية غالباً ينتج عن خوارزمية الجهاز التي تعتمد على إعداد حجم الكف."
+            },
+            {
+                q: "مضخة حقن (Syringe Pump) تظهر إنذار انسداد (Occlusion) بعد ثوانٍ من التشغيل، رغم أن الأنبوب مفتوح. ما السبب؟",
+                options: ["ارتخاء في ربط المحرك الخطوي.", "احتكاك ميكانيكي عالٍ في عمود الدوران أو انحراف في حساس القوة (Load Cell).", "فراغ شحنة البطارية.", "كسر في مشبك التثبيت."],
+                correct: 1,
+                exp: "الانسداد يُقاس عبر حساس القوة. الاحتكاك الميكانيكي الداخلي العالي يُشعر الجهاز بضغط وهمي مرتفع فيطلق الإنذار فوراً."
+            },
+            {
+                q: "أثناء إجراء صدمة متزامنة (Synchronized Cardioversion) بجهاز Defibrillator، مع أي موجة يتزامن الجهاز لتفريغ الشحنة؟",
+                options: ["موجة P.", "موجة T.", "موجة R.", "موجة U."],
+                correct: 2,
+                exp: "يجب أن تتزامن الصدمة مع موجة R (أعلى قمة) وتجنب موجة T، لأن الصدمة في فترة T قد تدخل المريض في رجفان بطيني مميت."
+            },
+            {
+                q: "جهاز صدمات تم ضبطه على 200 جول، لكن محلل القياس قرأ 150 جول فقط والجهاز موصل بالكهرباء. ما السبب المحتمل؟",
+                options: ["تلف كيبل الـ ECG.", "خلل في المكثف عالي الجهد (High Voltage Capacitor) أو مرحل التفريغ.", "أقطاب الصدمة نظيفة جداً.", "استخدام ورق طباعة غير حراري."],
+                correct: 1,
+                exp: "فقدان الطاقة الكبير أثناء التفريغ يشير غالباً لتدهور في المكثف عالي الجهد الذي لم يعد قادراً على تخزين الشحنة، أو وجود مقاومة في مرحل التفريغ."
+            },
+            {
+                q: "زر التدفق السريع للأكسجين (O2 Flush) في جهاز التخدير يتجاوز (Bypasses) أي من المكونات التالية؟",
+                options: ["عدادات التدفق (Flowmeters) والمبخرات (Vaporizers).", "منظم ضغط الأسطوانة.", "دائرة تنفس المريض.", "مصدر خطوط الغاز المركزية."],
+                correct: 0,
+                exp: "زر O2 Flush يأخذ الأكسجين من خط الضغط العالي مباشرة للمريض، متجاوزاً عدادات التدفق والمبخرات لتقديم 100% أكسجين بسرعة."
+            },
+            {
+                q: "في طاولة عمليات هيدروليكية، تسمع المحرك يعمل لكن الطاولة لا تتحرك بالريموت. التجاوز اليدوي يعمل بامتياز. ما الخلل؟",
+                options: ["تعطل المضخة الهيدروليكية الرئيسية.", "انخفاض مستوى الزيت الهيدروليكي.", "الصمامات الاتجاهية (Solenoid Valves) لا تصلها إشارة كهربائية للفتح.", "كسر في المكبس الهيدروليكي."],
+                correct: 2,
+                exp: "بما أن المضخة تعمل والتجاوز اليدوي يعمل، فالنظام الميكانيكي/الهيدروليكي سليم. المشكلة كهربائية في عدم استجابة الصمامات للريموت."
+            },
+            {
+                q: "جهاز تعقيم (Autoclave) لا يصل لحرارة التعقيم 134°C رغم وصول الضغط للحد المطلوب. ما السبب الأكثر ترجيحاً؟",
+                options: ["تلف عنصر التسخين.", "وجود هواء داخل الغرفة بسبب فشل مرحلة سحب الهواء (Vacuum Phase).", "عطل في مضخة الماء.", "تلف المطاط العازل للباب."],
+                correct: 1,
+                exp: "حسب قانون دالتون، إذا لم يُسحب الهواء، سيكون جزء من الضغط عبارة عن هواء غير مسخن لدرجة 134°C، مما يخفض حرارة البخار الفعلية."
+            },
+            {
+                q: "حضانة أطفال حرارتها تتذبذب بين 34 و 38 درجة رغم ضبطها على 36. إذا كانت الحساسات سليمة، فما السبب؟",
+                options: ["احتراق عنصر التسخين.", "عطل ميكانيكي في مروحة توزيع الهواء.", "فقدان ضبط قيم المعاملات للتحكم (PID Tuning) مثل زيادة الكسب التناسبي.", "عدم وجود ماء في خزان الرطوبة."],
+                correct: 2,
+                exp: "التذبذب المستمر حول نقطة الضبط صعوداً وهبوطاً (Overshoot & Undershoot) هو عرض كلاسيكي لعدم دقة معايرة معاملات نظام تحكم الـ PID."
+            },
+            {
+                q: "جهاز طرد مركزي مبرد (Centrifuge) يتوقف بإنذار 'Imbalance' رغم توازن العينات يدوياً. أي مكون تفحص أولاً؟",
+                options: ["ضاغط التبريد.", "حساس السرعة.", "مقياس التسارع أو مفتاح الاهتزاز (Microswitch).", "آلية قفل الباب."],
+                correct: 2,
+                exp: "إذا كانت العينات متوازنة فعلياً، فإن الحساس المسؤول عن رصد الاهتزاز هو الذي يرسل إشارة خاطئة للوحة التحكم بوجود اختلال."
+            },
+            {
+                q: "الكريستالات الانضغاطية (Piezoelectric) في مجس جهاز الموجات فوق الصوتية وظيفتها الأساسية:",
+                options: ["تخزين الصور في الذاكرة المؤقتة.", "تحويل النبضات الكهربائية إلى موجات صوتية عالية التردد والعكس.", "تبريد سطح المجس.", "فلترة الضوضاء الناتجة عن مصدر الكهرباء."],
+                correct: 1,
+                exp: "هي محولات طاقة (Transducers) تتمدد وتنكمش بالكهرباء لتوليد صوت، وتولد كهرباء عند اصطدام صدى الصوت بها لإنتاج الصورة."
+            },
+            {
+                q: "جهاز أشعة يفشل في إرسال الصور للـ PACS. الـ Ping للسيرفر ناجح. ما الإعداد الذي تتحقق منه أولاً؟",
+                options: ["معايرة أنبوب الأشعة.", "إعدادات بروتوكول (DICOM) مثل (AE Title, Port, IP Address).", "محاذاة شبكة الكشف (Grid).", "إعدادات الفلتر النحاسي."],
+                correct: 1,
+                exp: "نجاح الـ Ping يثبت سلامة الشبكة الفيزيائية. الفشل في الإرسال لنظام PACS يعود دائماً لعدم تطابق إعدادات بروتوكول DICOM."
+            },
+            {
+                q: "ظهر كود خطأ بجهاز تخدير يعني: 'فقدان الاتصال بين لوحة المبخر واللوحة الأم'. ما الإجراء *الأول والأسرع*؟",
+                options: ["استبدال اللوحة الأم فوراً.", "استبدال لوحة تحكم المبخر.", "فحص الكابلات الشريطية (Ribbon Cables) بين اللوحتين وإعادة تركيبها.", "إعادة تثبيت السوفت وير."],
+                correct: 2,
+                exp: "المبدأ الذهبي في الصيانة هو البدء بالأبسط. الكابلات الشريطية تفقد اتصالها بسبب الاهتزاز، وإعادة تركيبها يحل مشاكل الاتصال غالباً."
+            },
+            {
+                q: "شاشة مراقبة المريض لا تعمل. المقبس الجداري سليم، وكابل الطاقة سليم. قبل فتح غطاء الجهاز، ما الخطوة المنطقية التالية؟",
+                options: ["طلب لوحة إمداد طاقة داخلية جديدة.", "التحقق من الفيوزات الخارجية (External Main Fuses) إن وجدت.", "تكهين الجهاز.", "فحص عاكس إضاءة الشاشة (Backlight Inverter)."],
+                correct: 1,
+                exp: "التسلسل المنطقي: المقبس -> الكابل -> الفيوزات الخارجية -> وحدة الطاقة الداخلية. تخطي فحص الفيوزات الخارجية يعتبر قفزاً غير احترافي."
+            },
+            {
+                q: "أثناء الصيانة الوقائية (PM) وجدت مضخة سيرنج خارج نطاق الدقة المسموح. ما التسلسل الإداري الصحيح؟",
+                options: ["إصلاح الخلل وتوثيق أن الجهاز (نجح) لسرعة إغلاق أمر العمل.", "إعادة الجهاز للخدمة وطلب القطعة لاحقاً.", "توثيق النتيجة كحالة (As Found)، ثم الإصلاح، ثم توثيق النتيجة (As Left).", "وضع ملصق معطل وتكهين الجهاز."],
+                correct: 2,
+                exp: "التوثيق الصحيح يتطلب شفافية تامة: تسجيل فشل الجهاز الأولي، ثم الإجراء المتخذ، ثم النتيجة النهائية الناجحة لضمان التتبع الهندسي والقانوني."
+            },
+            {
+                q: "عند تحديد مستوى المخزون (Min-Max) لقطع الصيانة الوقائية (PM Kits)، ما العوامل الأهم في الحساب؟",
+                options: ["لون التغليف ومساحة الرف.", "عدد الأجهزة، وتيرة الصيانة (PM Frequency)، ومدة التوريد (Lead Time).", "ميزانية الصيانة التصحيحية فقط.", "تكلفة القطعة دون النظر لمعدل الاستهلاك."],
+                correct: 1,
+                exp: "مستوى المخزون يُحسب بناءً على الاستهلاك الفعلي (عدد الأجهزة × مرات الصيانة سنوياً) مضافاً إليه الوقت اللازم لوصول الطلبية لتجنب الانقطاع."
+            }
+        ];
+
+        let currentQuestion = 0;
+        let score = 0;
+        let timeLeft = 60;
+        let timerInterval;
+        let answered = false;
+        
+        let userData = { name: '', id: '', title: '', startTime: null };
+        let userAnswers = []; 
+
+        function startQuiz() {
+            userData.name = document.getElementById('user-name').value.trim();
+            userData.id = document.getElementById('user-id').value.trim();
+            userData.title = document.getElementById('user-title').value.trim();
+
+            if(!userData.name || !userData.id || !userData.title) {
+                alert("الرجاء تعبئة جميع الحقول لبدء الاختبار.");
+                return;
+            }
+
+            userData.startTime = new Date().toLocaleString('ar-SA');
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('quiz-screen').classList.remove('hidden');
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            answered = false;
+            const q = questions[currentQuestion];
+            document.getElementById('question-counter').innerText = `سؤال ${currentQuestion + 1} / ${questions.length}`;
+            document.getElementById('question-text').innerText = q.q;
+            
+            const optionsContainer = document.getElementById('options-container');
+            optionsContainer.innerHTML = '';
+            
+            q.options.forEach((opt, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-right p-4 border-2 border-gray-200 rounded-xl hover:bg-blue-50 hover:border-blue-400 text-gray-700 bg-white mb-3 text-lg font-medium transition duration-200';
+                btn.innerText = opt;
+                btn.onclick = () => checkAnswer(index, btn);
+                optionsContainer.appendChild(btn);
+            });
+
+            resetTimer();
+        }
+
+        function resetTimer() {
+            clearInterval(timerInterval);
+            timeLeft = 60;
+            document.getElementById('timer-text').innerText = `${timeLeft} ثانية`;
+            document.getElementById('timer-bar').style.width = '100%';
+            document.getElementById('timer-bar').className = 'bg-blue-600 h-2.5 rounded-full timer-bar';
+            
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timer-text').innerText = `${timeLeft} ثانية`;
+                document.getElementById('timer-bar').style.width = `${(timeLeft / 60) * 100}%`;
+                
+                if(timeLeft <= 15) document.getElementById('timer-bar').className = 'bg-red-500 h-2.5 rounded-full timer-bar';
+                if(timeLeft <= 0) { clearInterval(timerInterval); checkAnswer(-1, null); }
+            }, 1000);
+        }
+
+        function checkAnswer(selectedIndex, btnElement) {
+            if (answered) return;
+            answered = true;
+            clearInterval(timerInterval);
+
+            const q = questions[currentQuestion];
+            const isCorrect = selectedIndex === q.correct;
+            
+            userAnswers.push({
+                questionText: q.q,
+                userChoice: selectedIndex === -1 ? "لم يُجب (انتهى الوقت)" : q.options[selectedIndex],
+                correctChoice: q.options[q.correct],
+                isCorrect: isCorrect
+            });
+
+            const buttons = document.getElementById('options-container').children;
+            buttons[q.correct].classList.add('bg-green-100', 'border-green-500');
+            buttons[q.correct].classList.remove('border-gray-200');
+            
+            if (!isCorrect && selectedIndex !== -1) {
+                btnElement.classList.add('bg-red-100', 'border-red-500');
+                btnElement.classList.remove('border-gray-200');
+            }
+
+            if (isCorrect) score++;
+
+            setTimeout(() => { showFeedback(isCorrect, selectedIndex === -1, q.exp); }, 1000);
+        }
+
+        function showFeedback(isCorrect, isTimeout, explanation) {
+            document.getElementById('feedback-icon').innerHTML = isCorrect ? '✅' : (isTimeout ? '⏰' : '❌');
+            document.getElementById('feedback-title').innerText = isCorrect ? 'إجابة صحيحة!' : (isTimeout ? 'انتهى الوقت!' : 'إجابة خاطئة!');
+            document.getElementById('feedback-title').className = `text-3xl font-bold mb-4 ${isCorrect ? 'text-green-600' : (isTimeout ? 'text-orange-500' : 'text-red-600')}`;
+            document.getElementById('feedback-explanation').innerText = explanation;
+            document.getElementById('feedback-modal').classList.remove('hidden');
+        }
+
+        function nextQuestion() {
+            document.getElementById('feedback-modal').classList.add('hidden');
+            currentQuestion++;
+            
+            if (currentQuestion < questions.length) {
+                loadQuestion();
+            } else {
+                finishAndSave();
+            }
+        }
+
+        function finishAndSave() {
+            document.getElementById('quiz-screen').classList.add('hidden');
+            document.getElementById('loading-screen').classList.remove('hidden');
+            
+            buildReportDOM();
+            
+            const element = document.getElementById('report-content');
+            
+            // إعدادات إنشاء الـ PDF
+            const opt = {
+                margin: 0.2,
+                filename: `تقييم_${userData.name}_${userData.id}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+            };
+
+            // تحويل الـ HTML إلى PDF وإرساله عبر Fetch API إلى السكربت
+            html2pdf().set(opt).from(element).outputPdf('datauristring').then(function (pdfBase64) {
+                const base64Data = pdfBase64.split(',')[1];
+                
+                const formData = new URLSearchParams();
+                formData.append('fileData', base64Data);
+                formData.append('fileName', opt.filename);
+
+                fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('loading-screen').classList.add('hidden');
+                    document.getElementById('report-screen').classList.remove('hidden');
+                })
+                .catch(err => {
+                    console.error("Error:", err);
+                    alert("⚠️ تعذر رفع الملف إلى السيرفر، يرجى النقر على (طباعة نسخة) لحفظ نتيجتك يدوياً كـ PDF.");
+                    document.getElementById('loading-screen').classList.add('hidden');
+                    document.getElementById('report-screen').classList.remove('hidden');
+                });
+            });
+        }
+
+        function buildReportDOM() {
+            document.getElementById('report-date').innerText = `تاريخ ووقت الاختبار: ${userData.startTime}`;
+            document.getElementById('r-name').innerText = userData.name;
+            document.getElementById('r-id').innerText = userData.id;
+            document.getElementById('r-title').innerText = userData.title;
+            
+            const percentage = Math.round((score / questions.length) * 100);
+            document.getElementById('r-score').innerText = `${percentage}% (${score} من ${questions.length})`;
+            
+            let evalText = "";
+            let evalColor = "";
+            if (percentage >= 85) {
+                evalText = "مستوى متقدم (Advanced) - ممتاز جداً ومستعد للعمل الميداني كخبير.";
+                evalColor = "text-green-600";
+            } else if (percentage >= 65) {
+                evalText = "مستوى متوسط (Intermediate) - جيد جداً، يمتلك أساسيات قوية.";
+                evalColor = "text-blue-600";
+            } else {
+                evalText = "مستوى أساسي (Basic) - يحتاج إلى مزيد من التدريب العملي.";
+                evalColor = "text-orange-600";
+            }
+            
+            const evalEl = document.getElementById('r-eval');
+            evalEl.innerText = evalText;
+            evalEl.className = `text-xl font-bold ${evalColor}`;
+
+            const detailsDiv = document.getElementById('report-details');
+            detailsDiv.innerHTML = '';
+            
+            userAnswers.forEach((ans, i) => {
+                const item = document.createElement('div');
+                item.className = 'border-b border-gray-200 pb-4 mb-4';
+                item.innerHTML = `
+                    <p class="font-bold text-gray-800 mb-2">${i+1}. ${ans.questionText}</p>
+                    <p class="mb-1 text-gray-600">إجابة الموظف: <span class="${ans.isCorrect ? 'text-green-600' : 'text-red-600'} font-bold">${ans.userChoice}</span></p>
+                    ${!ans.isCorrect ? `<p class="text-green-700 bg-green-50 p-2 rounded inline-block mt-1">الإجابة الصحيحة: ${ans.correctChoice}</p>` : ''}
+                `;
+                detailsDiv.appendChild(item);
+            });
+        }
+    </script>
+</body>
+</html>
